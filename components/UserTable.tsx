@@ -1,60 +1,162 @@
+// components/UserTable.tsx
 "use client";
 
+import * as React from "react";
+import * as Select from "@radix-ui/react-select";
+import { ChevronDown, ChevronUp, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchUsers } from "@/lib/api";
-import { useUserStore } from "@/store/useUserStore";
+import axios from "axios";
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  company: { name: string };
+};
 
 export default function UserTable() {
-  const { data: users, isLoading } = useQuery({
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["users"],
-    queryFn: fetchUsers,
+    queryFn: async () => {
+      const res = await axios.get<User[]>(
+        "https://jsonplaceholder.typicode.com/users"
+      );
+      return res.data;
+    },
   });
 
-  const { setSelectedUser } = useUserStore();
+  const [search, setSearch] = React.useState("");
+  const [sortAsc, setSortAsc] = React.useState(true);
+  const [companyFilter, setCompanyFilter] = React.useState<string>("");
 
-  if (isLoading) return <p>Loading...</p>;
+  // Collect unique company names
+  const companyList = React.useMemo(() => {
+    return Array.from(new Set(users.map((u) => u.company.name)));
+  }, [users]);
+
+  // Apply search, sort, and filter
+  const filtered = React.useMemo(() => {
+    let list = [...users];
+
+    if (search.trim()) {
+      list = list.filter((u) =>
+        u.name.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    if (companyFilter) {
+      list = list.filter((u) => u.company.name === companyFilter);
+    }
+
+    list.sort((a, b) => {
+      return sortAsc
+        ? a.email.localeCompare(b.email)
+        : b.email.localeCompare(a.email);
+    });
+
+    return list;
+  }, [users, search, sortAsc, companyFilter]);
 
   return (
-    <div className="p-6 bg-white shadow rounded-lg">
-      <h2 className="text-xl font-bold mb-4">User Management</h2>
-      <table className="w-full border-collapse">
+    <div className="p-6 space-y-4">
+      {/* Controls */}
+      <div className="flex gap-4 items-center">
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search by name..."
+          className="border px-3 py-2 rounded-md"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
+        {/* Sort toggle */}
+        <button
+          onClick={() => setSortAsc((prev) => !prev)}
+          className="border px-3 py-2 rounded-md"
+        >
+          Sort Email {sortAsc ? "(A–Z)" : "(Z–A)"}
+        </button>
+
+        {/* Company Filter */}
+        <Select.Root
+          value={companyFilter}
+          onValueChange={(val) => setCompanyFilter(val)}
+        >
+          <Select.Trigger className="border px-3 py-2 rounded-md inline-flex items-center justify-between w-[200px]">
+            <Select.Value placeholder="Filter by company" />
+            <Select.Icon>
+              <ChevronDown size={16} />
+            </Select.Icon>
+          </Select.Trigger>
+          <Select.Content className="bg-white border rounded-md shadow">
+            <Select.ScrollUpButton className="flex items-center justify-center p-2">
+              <ChevronUp size={16} />
+            </Select.ScrollUpButton>
+            <Select.Viewport>
+              {/* Clear option */}
+              <Select.Item value="__all__">
+                <Select.ItemText>All Companies</Select.ItemText>
+                <Select.ItemIndicator>
+                  <Check size={14} />
+                </Select.ItemIndicator>
+              </Select.Item>
+
+              {companyList.map((company) => (
+                <Select.Item key={company} value={company}>
+                  <Select.ItemText>{company}</Select.ItemText>
+                  <Select.ItemIndicator>
+                    <Check size={14} />
+                  </Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      {/* Table */}
+      <table className="w-full border-collapse border">
         <thead>
-          <tr className="border-b">
-            <th className="text-left p-2">Avatar</th>
-            <th className="text-left p-2">Name</th>
-            <th className="text-left p-2">Email</th>
-            <th className="text-left p-2">Phone</th>
-            <th className="text-left p-2">Company</th>
-            <th className="text-left p-2">Actions</th>
+          <tr className="bg-gray-100 text-left">
+            <th className="border p-2">Avatar</th>
+            <th className="border p-2">Name</th>
+            <th className="border p-2">Email</th>
+            <th className="border p-2">Phone</th>
+            <th className="border p-2">Company</th>
+            <th className="border p-2">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {users?.map((user: any) => (
-            <tr key={user.id} className="border-b hover:bg-gray-50">
-              <td className="p-2">
-                <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center">
-                  {user.name.charAt(0)}
-                </div>
+          {filtered.map((u) => (
+            <tr key={u.id} className="hover:bg-gray-50">
+              <td className="border p-2 text-center">
+                {u.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </td>
-              <td className="p-2">{user.name}</td>
-              <td className="p-2">{user.email}</td>
-              <td className="p-2">{user.phone}</td>
-              <td className="p-2">{user.company.name}</td>
-              <td className="p-2 space-x-2">
-                <button
-                  onClick={() => setSelectedUser(user)}
-                  className="px-3 py-1 text-sm bg-yellow-500 text-white rounded"
-                >
+              <td className="border p-2">{u.name}</td>
+              <td className="border p-2">{u.email}</td>
+              <td className="border p-2">{u.phone}</td>
+              <td className="border p-2">{u.company.name}</td>
+              <td className="border p-2">
+                <button className="text-blue-600 hover:underline mr-2">
                   Edit
                 </button>
-                <button
-                  className="px-3 py-1 text-sm bg-red-500 text-white rounded"
-                >
-                  Delete
-                </button>
+                <button className="text-red-600 hover:underline">Delete</button>
               </td>
             </tr>
           ))}
+
+          {filtered.length === 0 && (
+            <tr>
+              <td colSpan={6} className="text-center p-4 text-gray-500">
+                No users found
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
