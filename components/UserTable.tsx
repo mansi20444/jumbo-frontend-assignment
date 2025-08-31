@@ -5,7 +5,11 @@ import * as React from "react";
 import * as Select from "@radix-ui/react-select";
 import { ChevronDown, ChevronUp, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import UserFormDialog from "./UserFormDialog"; 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+
+
 
 type User = {
   id: number;
@@ -16,6 +20,13 @@ type User = {
 };
 
 export default function UserTable() {
+  const [open, setOpen] = React.useState(false);
+  const [editingUser, setEditingUser] = React.useState<User | null>(null);
+  const queryClient = useQueryClient();
+
+
+
+  
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: async () => {
@@ -24,18 +35,20 @@ export default function UserTable() {
       );
       return res.data;
     },
+    refetchOnWindowFocus: false, 
+    staleTime: Infinity,
   });
 
   const [search, setSearch] = React.useState("");
   const [sortAsc, setSortAsc] = React.useState(true);
   const [companyFilter, setCompanyFilter] = React.useState<string>("");
 
-  // Collect unique company names
+
   const companyList = React.useMemo(() => {
     return Array.from(new Set(users.map((u) => u.company.name)));
   }, [users]);
 
-  // Apply search, sort, and filter
+  
   const filtered = React.useMemo(() => {
     let list = [...users];
 
@@ -60,9 +73,9 @@ export default function UserTable() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* Controls */}
+      {}
       <div className="flex gap-4 items-center">
-        {/* Search */}
+        {}
         <input
           type="text"
           placeholder="Search by name..."
@@ -70,8 +83,17 @@ export default function UserTable() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+<button
+  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+  onClick={() => {
+    setEditingUser(null); 
+    setOpen(true);       
+  }}
+>
+  Add User
+</button>
 
-        {/* Sort toggle */}
+        {}
         <button
           onClick={() => setSortAsc((prev) => !prev)}
           className="border px-3 py-2 rounded-md"
@@ -79,7 +101,7 @@ export default function UserTable() {
           Sort Email {sortAsc ? "(A–Z)" : "(Z–A)"}
         </button>
 
-        {/* Company Filter */}
+        {}
         <Select.Root
           value={companyFilter}
           onValueChange={(val) => setCompanyFilter(val)}
@@ -95,7 +117,7 @@ export default function UserTable() {
               <ChevronUp size={16} />
             </Select.ScrollUpButton>
             <Select.Viewport>
-              {/* Clear option */}
+              {}
               <Select.Item value="__all__">
                 <Select.ItemText>All Companies</Select.ItemText>
                 <Select.ItemIndicator>
@@ -116,7 +138,7 @@ export default function UserTable() {
         </Select.Root>
       </div>
 
-      {/* Table */}
+      {}
       <table className="w-full border-collapse border">
         <thead>
           <tr className="bg-gray-100 text-left">
@@ -142,9 +164,15 @@ export default function UserTable() {
               <td className="border p-2">{u.phone}</td>
               <td className="border p-2">{u.company.name}</td>
               <td className="border p-2">
-                <button className="text-blue-600 hover:underline mr-2">
-                  Edit
-                </button>
+                <button
+  className="text-blue-600 hover:underline mr-2"
+  onClick={() => {
+    setEditingUser(u);
+    setOpen(true);
+  }}
+>
+  Edit
+</button>
                 <button className="text-red-600 hover:underline">Delete</button>
               </td>
             </tr>
@@ -159,6 +187,7 @@ export default function UserTable() {
           )}
         </tbody>
       </table>
+<UserFormDialog open={open} onOpenChange={setOpen} initialData={editingUser} />
     </div>
   );
 }
