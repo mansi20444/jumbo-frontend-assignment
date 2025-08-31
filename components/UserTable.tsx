@@ -23,6 +23,30 @@ export default function UserTable() {
   const [open, setOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<User | null>(null);
   const queryClient = useQueryClient();
+  const deleteUserMutation = useMutation({
+  mutationFn: async (userId: number) => {
+    
+    await axios.delete(`https://jsonplaceholder.typicode.com/users/${userId}`);
+    return userId;
+  },
+  onMutate: async (userId: number) => {
+    await queryClient.cancelQueries({ queryKey: ["users"] });
+
+    const previousUsers = queryClient.getQueryData<User[]>(["users"]) || [];
+
+    
+    queryClient.setQueryData<User[]>(["users"], previousUsers.filter(u => u.id !== userId));
+
+    return { previousUsers };
+  },
+  onError: (_err, _userId, context) => {
+    
+    if (context?.previousUsers) {
+      queryClient.setQueryData(["users"], context.previousUsers);
+    }
+  }
+  });
+
 
 
 
@@ -173,7 +197,12 @@ export default function UserTable() {
 >
   Edit
 </button>
-                <button className="text-red-600 hover:underline">Delete</button>
+                <button
+  className="text-red-600 hover:underline"
+  onClick={() => deleteUserMutation.mutate(u.id)}
+>
+  Delete
+</button>
               </td>
             </tr>
           ))}
